@@ -208,9 +208,7 @@ async def get_posts(
                 yield posts
                 
                 # If messages count is less than limit, we've reached the end
-                if offset_id - 100 < last_message_id:
-                    limit = last_message_id - offset_id
-                else:
+                if offset_id >= last_message_id:
                     break
                 
             except errors.FloodWaitError as e:
