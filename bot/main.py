@@ -171,17 +171,18 @@ async def get_posts(
     Yields:
         List of messages
     """
+
     try:
-        
         while True:
             try:
                 
+                to_offset_id = offset_id + limit
                 messages = await client.get_messages(
                     types.PeerChannel(source_channel_id),
-                    ids=[i for i in range(offset_id, offset_id + limit)]
+                    ids=[i for i in range(offset_id, offset_id + limit) if i <= last_message_id]
                 )
                 
-                offset_id += limit
+                offset_id = to_offset_id
                 
                 # Break if no messages
                 if not messages:
@@ -198,18 +199,11 @@ async def get_posts(
                 if not posts:
                     logger.info(f'💢 Posts Not Found, offset updated to : {offset_id}')
                     continue
-                
-                # Update offset
-                offset_id = posts[-1].id
-                
+                                
                 logger.info(f"📥 Received {len(posts)} new messages (offset: {offset_id})")
                 
                 # Yield posts
                 yield posts
-                
-                # If messages count is less than limit, we've reached the end
-                if offset_id >= last_message_id:
-                    break
                 
             except errors.FloodWaitError as e:
                 wait_time = e.seconds + 2
