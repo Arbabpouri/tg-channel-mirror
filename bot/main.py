@@ -347,7 +347,7 @@ async def channel_mirror_handler(event: Message) -> None:
         
         # Add task to queue
         task = asyncio.create_task(
-            mirror_posts(source_channel_id, destination_channel_id)
+            mirror_posts(source_channel_id, destination_channel_id, event.chat_id)
         )
         await queue.put(task)
         
