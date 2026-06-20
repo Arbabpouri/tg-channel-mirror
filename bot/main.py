@@ -59,95 +59,99 @@ bot_info = None
 # endregion
 
 # region helpers
-def get_task_info(source_channel_id: int, destination_channel_id: int) -> int:
-    """
-    Get the last saved offset for a task
+
+class TaskManagment:
     
-    Args:
-        source_channel_id: Source channel ID
-        destination_channel_id: Destination channel ID
+    def __init__(self):
+        self._file_path = Path('channels_info.txt')
         
-    Returns:
-        Last message ID sent or 0
-    """
-    file_path = Path('channels_info.txt')
-    
-    # Create file if it doesn't exist
-    if not file_path.exists():
-        file_path.touch()
-        return 0
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
+    def get_task_info(self, source_channel_id: int, destination_channel_id: int) -> int:
+        """
+        Get the last saved offset for a task
         
-        # Search pattern
-        pattern = rf'{source_channel_id} to {destination_channel_id}: (\d+)'
-        match = re.search(pattern, content)
-        
-        if match:
-            last_id = int(match.group(1))
-            logger.debug(f"Last ID found: {last_id}")
-            return last_id
-        else:
-            # New task
-            with open(file_path, 'a', encoding='utf-8') as file:
-                file.write(f'{source_channel_id} to {destination_channel_id}: 0\n')
-            return 0
+        Args:
+            source_channel_id: Source channel ID
+            destination_channel_id: Destination channel ID
             
-    except Exception as e:
-        logger.error(f"Error reading info file: {e}")
-        return 0
+        Returns:
+            Last message ID sent or 0
+        """
+        
+        # Create file if it doesn't exist
+        if not self._file_path.exists():
+            self._file_path.touch()
+            return 0
+        
+        try:
+            with open(self._file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Search pattern
+            pattern = rf'{source_channel_id} to {destination_channel_id}: (\d+)'
+            match = re.search(pattern, content)
+            
+            if match:
+                last_id = int(match.group(1))
+                logger.debug(f"Last ID found: {last_id}")
+                return last_id
+            else:
+                # New task
+                with open(self._file_path, 'a', encoding='utf-8') as file:
+                    file.write(f'{source_channel_id} to {destination_channel_id}: 0\n')
+                return 0
+                
+        except Exception as e:
+            logger.error(f"Error reading info file: {e}")
+            return 0
 
+    def update_task_info(self, source_channel_id: int, destination_channel_id: int, last_id: int) -> bool:
+        """
+        Update the last sent ID for a task
+        
+        Args:
+            source_channel_id: Source channel ID
+            destination_channel_id: Destination channel ID
+            last_id: Last sent message ID
+            
+        Returns:
+            Operation success status
+        """
+        
+        try:
+            # Read current content
+            if self._file_path.exists():
+                with open(self._file_path, 'r', encoding='utf-8') as file:
+                    lines = file.readlines()
+            else:
+                lines = []
+            
+            # Update the relevant line
+            updated = False
+            pattern = rf'{source_channel_id} to {destination_channel_id}: \d+'
+            new_line = f'{source_channel_id} to {destination_channel_id}: {last_id}\n'
+            
+            for i, line in enumerate(lines):
+                if re.search(pattern, line):
+                    lines[i] = new_line
+                    updated = True
+                    break
+            
+            # If line not found, add it
+            if not updated:
+                lines.append(new_line)
+            
+            # Write to file
+            with open(self._file_path, 'w', encoding='utf-8') as file:
+                file.writelines(lines)
+            
+            logger.debug(f"Last ID updated: {last_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating info file: {e}")
+            return False
 
-def update_task_info(source_channel_id: int, destination_channel_id: int, last_id: int) -> bool:
-    """
-    Update the last sent ID for a task
-    
-    Args:
-        source_channel_id: Source channel ID
-        destination_channel_id: Destination channel ID
-        last_id: Last sent message ID
-        
-    Returns:
-        Operation success status
-    """
-    file_path = Path('channels_info.txt')
-    
-    try:
-        # Read current content
-        if file_path.exists():
-            with open(file_path, 'r', encoding='utf-8') as file:
-                lines = file.readlines()
-        else:
-            lines = []
-        
-        # Update the relevant line
-        updated = False
-        pattern = rf'{source_channel_id} to {destination_channel_id}: \d+'
-        new_line = f'{source_channel_id} to {destination_channel_id}: {last_id}\n'
-        
-        for i, line in enumerate(lines):
-            if re.search(pattern, line):
-                lines[i] = new_line
-                updated = True
-                break
-        
-        # If line not found, add it
-        if not updated:
-            lines.append(new_line)
-        
-        # Write to file
-        with open(file_path, 'w', encoding='utf-8') as file:
-            file.writelines(lines)
-        
-        logger.debug(f"Last ID updated: {last_id}")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error updating info file: {e}")
-        return False
-
+task_managment = TaskManagment()
 
 async def get_posts(
     source_channel_id: int,
@@ -235,7 +239,7 @@ async def mirror_posts(
     
     try:
         # Get last sent message ID
-        start_offset = get_task_info(source_channel_id, destination_channel_id)
+        start_offset = task_managment.get_task_info(source_channel_id, destination_channel_id)
         logger.info(f"📌 Starting from ID: {start_offset}")
         
         total_sent = 0
@@ -257,7 +261,7 @@ async def mirror_posts(
                     total_sent += 1
                     
                     # Update last sent message ID
-                    update_task_info(source_channel_id, destination_channel_id, msg.id)
+                    task_managment.update_task_info(source_channel_id, destination_channel_id, msg.id)
                     
                     # Random delay between 0.5 and 1.5 seconds
                     delay = round(0.5 + random.random(), 2)
