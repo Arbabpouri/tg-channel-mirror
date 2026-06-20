@@ -155,6 +155,7 @@ class TaskManagment:
 task_managment = TaskManagment()
 
 async def get_posts(
+    last_message_id: int,
     source_channel_id: int,
     offset_id: int = 0,
     limit: int = 100,
@@ -182,7 +183,7 @@ async def get_posts(
                 
                 # Break if no messages
                 if not messages:
-                    break
+                    continue
                 
                 # Filter regular messages (not system messages)
                 posts = []
@@ -192,7 +193,7 @@ async def get_posts(
                 
                 # If no posts after filtering
                 if not posts:
-                    break
+                    continue
                 
                 # Update offset
                 offset_id = posts[-1].id
@@ -203,7 +204,9 @@ async def get_posts(
                 yield posts
                 
                 # If messages count is less than limit, we've reached the end
-                if len(messages) < limit:
+                if offset_id + limit > last_message_id:
+                    limit = last_message_id - offset_id
+                elif offset_id >= last_message_id:
                     break
                 
             except errors.FloodWaitError as e:
@@ -222,6 +225,7 @@ async def get_posts(
 async def mirror_posts(
     source_channel_id: int,
     destination_channel_id: int,
+    last_message_id: int
 ) -> None:
     """
     Mirror messages from one channel to another
@@ -244,7 +248,8 @@ async def mirror_posts(
         async for posts in get_posts(
             source_channel_id=source_channel_id,
             offset_id=start_offset,
-            limit=100
+            limit=100,
+            last_message_id=last_message_id
         ):
             for msg in posts:
                 try:
