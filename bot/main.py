@@ -183,6 +183,7 @@ async def get_posts(
                 
                 # Break if no messages
                 if not messages:
+                    offset_id += limit
                     continue
                 
                 # Filter regular messages (not system messages)
@@ -193,6 +194,7 @@ async def get_posts(
                 
                 # If no posts after filtering
                 if not posts:
+                    offset_id += limit
                     continue
                 
                 # Update offset
