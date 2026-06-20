@@ -219,3 +219,7 @@ __marimo__/
 
 # Session file
 *.session
+*.session-journal
+
+# Channels info file
+channels_info.txt
