@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     API_HASH: SecretStr = Field(..., alias='API_HASH')
     BOT_TOKEN: SecretStr = Field(..., alias='BOT_TOKEN')
     ADMINS_IDS: list[int] = Field(..., alias='ADMINS_IDS')
+    
 
 
 settings = Settings()
@@ -170,27 +171,22 @@ async def get_posts(
         List of messages
     """
     try:
+        
         while True:
             try:
-                # Get message history
-                history = await client(functions.messages.GetHistoryRequest(
-                    peer=types.PeerChannel(source_channel_id),
-                    offset_id=offset_id,
-                    offset_date=None,
-                    add_offset=0,
-                    limit=limit,
-                    max_id=0,
-                    min_id=0,
-                    hash=0
-                ))
+                
+                messages = await client.get_messages(
+                    types.PeerChannel(source_channel_id),
+                    ids=[i for i in range(offset_id, offset_id + limit)]
+                )
                 
                 # Break if no messages
-                if not history.messages:
+                if not messages:
                     break
                 
                 # Filter regular messages (not system messages)
                 posts = []
-                for msg in history.messages:
+                for msg in messages:
                     if isinstance(msg, TLMessage) and not isinstance(msg, MessageService):
                         posts.append(msg)
                 
@@ -199,7 +195,7 @@ async def get_posts(
                     break
                 
                 # Update offset
-                offset_id = history.messages[-1].id
+                offset_id = posts[-1].id
                 
                 logger.info(f"📥 Received {len(posts)} new messages (offset: {offset_id})")
                 
@@ -207,7 +203,7 @@ async def get_posts(
                 yield posts
                 
                 # If messages count is less than limit, we've reached the end
-                if len(history.messages) < limit:
+                if len(messages) < limit:
                     break
                 
             except errors.FloodWaitError as e:
@@ -253,9 +249,11 @@ async def mirror_posts(
             for msg in posts:
                 try:
                     # Send message to destination channel
-                    await client.send_message(
+                    await client.forward_messages(
+                        from_peer=types.PeerChannel(source_channel_id),
                         entity=types.PeerChannel(destination_channel_id),
-                        message=msg
+                        messages=msg.id,
+                        drop_author=True,
                     )
                     
                     total_sent += 1
@@ -289,18 +287,26 @@ async def mirror_posts(
 @client.on(events.NewMessage(
     incoming=True,
     outgoing=False,
-    from_users=settings.ADMINS_IDS,
     pattern=r'^/mirror -100\d+$',
+    func=lambda e: e.is_channel,
 ))
 async def channel_mirror_handler(event: Message) -> None:
     """
     Handler for starting mirror task
     """
     try:
+        
+        # Check admin
+        async for admin in client.iter_participants(event.chat, filter=types.ChannelParticipantsAdmins, search=event.message.post_author):
+            if admin.id in settings.ADMINS_IDS:
+                break
+        else:
+            return
+        
         # Extract IDs
         parts = event.raw_text.split()
         if len(parts) < 2:
-            await event.reply("❌ Invalid format. Use: /mirror -100123456789")
+            await logger.warning("❌ Invalid format. Use: /mirror -100123456789")
             return
         
         destination_channel_id = int(parts[1])
