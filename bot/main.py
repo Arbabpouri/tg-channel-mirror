@@ -352,7 +352,7 @@ async def channel_mirror_handler(event: Message) -> None:
             mirror_posts(
                 source_channel_id=source_channel_id, 
                 destination_channel_id=destination_channel_id,
-                last_message_id=event.chat_id
+                last_message_id=event.id
             )
         )
         await queue.put(task)
