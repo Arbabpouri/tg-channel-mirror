@@ -181,9 +181,10 @@ async def get_posts(
                     ids=[i for i in range(offset_id, offset_id + limit)]
                 )
                 
+                offset_id += limit
+                
                 # Break if no messages
                 if not messages:
-                    offset_id += limit
                     logger.info(f'💢 Posts Not Found, offset updated to : {offset_id}')
                     continue
                 
@@ -195,7 +196,6 @@ async def get_posts(
                 
                 # If no posts after filtering
                 if not posts:
-                    offset_id += limit
                     logger.info(f'💢 Posts Not Found, offset updated to : {offset_id}')
                     continue
                 
