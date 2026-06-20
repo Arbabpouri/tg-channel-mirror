@@ -176,13 +176,12 @@ async def get_posts(
         while True:
             try:
                 
-                to_offset_id = offset_id + limit
                 messages = await client.get_messages(
                     types.PeerChannel(source_channel_id),
                     ids=[i for i in range(offset_id, offset_id + limit) if i <= last_message_id]
                 )
                 
-                offset_id = to_offset_id
+                offset_id = offset_id + limit
                 
                 # Break if no messages
                 if not messages:
