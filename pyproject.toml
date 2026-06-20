@@ -1,0 +1,11 @@
+[project]
+name = "tg-channel-mirror"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "telethon>=1.44.0",
+]
